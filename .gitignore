@@ -1,0 +1,16 @@
+*
+
+!.gitignore
+!README.md
+
+!/flake.nix
+!/flake.lock
+
+!/src/
+!/src/**
+
+!/build.zig
+!/build.zig.zon
+
+!/examples/
+!/examples/**

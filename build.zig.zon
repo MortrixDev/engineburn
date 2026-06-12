@@ -1,0 +1,12 @@
+.{
+    .name = .engineburn,
+    .fingerprint = 0x93df09ef7c7ad5c9,
+    .version = "0.0.1",
+    .dependencies = .{
+        .raylib = .{
+            .url = "https://github.com/raysan5/raylib/archive/refs/tags/6.0.tar.gz",
+            .hash = "raylib-6.0.0-whq8uCSwLgWWeF3ec3dbG6Rr36SLFL-s2WJ1Q_2E22Bb",
+        },
+    },
+    .paths = .{""},
+}
