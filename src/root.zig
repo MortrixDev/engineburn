@@ -1,9 +1,14 @@
-pub const core = @import("core/mod.zig");
-pub const math = @import("math/mod.zig");
-pub const ecs = @import("ecs/mod.zig");
-pub const components = @import("components/mod.zig");
-pub const renderer = @import("renderer/mod.zig");
-pub const game = @import("game/game.zig");
+pub const Game = @import("game/game.zig").Game;
 pub const Camera = @import("game/camera.zig").Camera;
-pub const assets = @import("assets/assets.zig");
+pub const Transform = @import("components/transform.zig").Transform;
+pub const Sprite = @import("components/sprite.zig").Sprite;
+pub const Collider = @import("components/collider.zig").Collider;
+pub const Shape = @import("components/collider.zig").Shape;
+pub const Vec2 = @import("math/vec2.zig").Vec2;
+pub const Rect = @import("math/rect.zig").Rect;
+pub const Color = @import("renderer/color.zig").Color;
+
+pub const renderer = @import("renderer/mod.zig");
 pub const input = @import("input/input.zig");
+pub const physics = @import("physics/collision.zig");
+pub const assets = @import("assets/assets.zig");

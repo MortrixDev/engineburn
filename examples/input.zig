@@ -1,8 +1,8 @@
 const std = @import("std");
 const engineburn = @import("engineburn");
-const Game = engineburn.game.Game;
-const Sprite = engineburn.components.Sprite;
-const Transform = engineburn.components.Transform;
+const Game = engineburn.Game;
+const Sprite = engineburn.Sprite;
+const Transform = engineburn.Transform;
 const input = engineburn.input;
 
 const SPEED: f32 = 200;

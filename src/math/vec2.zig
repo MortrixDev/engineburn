@@ -23,6 +23,16 @@ pub const Vec2 = struct {
         return .{ .x = self.x * s, .y = self.y * s };
     }
 
+    pub fn mul(self: Vec2, other: Vec2) Vec2 {
+        return .{ .x = self.x * other.x, .y = self.y * other.y };
+    }
+
+    pub fn rotate(self: Vec2, radians: f32) Vec2 {
+        const c = @cos(radians);
+        const s = @sin(radians);
+        return .{ .x = self.x * c - self.y * s, .y = self.x * s + self.y * c };
+    }
+
     pub fn negate(self: Vec2) Vec2 {
         return .{ .x = -self.x, .y = -self.y };
     }

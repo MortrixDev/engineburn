@@ -1,9 +1,8 @@
 const std = @import("std");
 const engineburn = @import("engineburn");
-const Game = engineburn.game.Game;
-const Sprite = engineburn.components.Sprite;
-const Transform = engineburn.components.Transform;
-const Color = engineburn.renderer.Color;
+const Game = engineburn.Game;
+const Sprite = engineburn.Sprite;
+const Transform = engineburn.Transform;
 
 const MyGame = Game(.{Sprite});
 
