@@ -18,7 +18,7 @@ pub fn main(init: std.process.Init) !void {
     _ = try game.world.spawn(.{
         Sprite{ .texture = tex, .src = .{ .x = 0, .y = 0, .w = 16, .h = 16 } },
         Transform{
-            .position = .{ .x = -32, .y = -32 },
+            .position = .{ .x = 0, .y = 0 },
             .scale = .{ .x = 4, .y = 4 },
         },
     });

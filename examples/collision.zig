@@ -10,12 +10,13 @@ const input = engineburn.input;
 const collision = engineburn.physics;
 
 const SPEED: f32 = 250;
+const SPIN: f32 = 1.5;
 
 const Player = struct {};
 
 const MyGame = Game(.{ Collider, Player });
 
-const obstacles = [_]collision.Body{
+var obstacles = [_]collision.Body{
     .{
         .transform = .{ .position = .{ .x = 200, .y = 150 } },
         .collider = .{ .shape = .{ .rect = .{ .x = 40, .y = 40 } } },
@@ -31,6 +32,8 @@ const obstacles = [_]collision.Body{
 };
 
 fn update(game: *MyGame, dt: f32) void {
+    obstacles[0].transform.rotation += SPIN * dt;
+
     var iter = game.world.query(.{ Transform, Collider, Player });
     while (iter.next()) |r| {
         if (input.isKeyDown(.right)) r.Transform.position.x += SPEED * dt;
@@ -41,7 +44,6 @@ fn update(game: *MyGame, dt: f32) void {
 }
 
 fn render(game: *MyGame, _: f32) void {
-    // Determine which obstacles the player is touching.
     var touching_index: ?usize = null;
     var iter = game.world.query(.{ Transform, Collider, Player });
     if (iter.next()) |r| {
@@ -49,30 +51,14 @@ fn render(game: *MyGame, _: f32) void {
         if (collision.IsCollidingMany(body, &obstacles)) |hit| touching_index = hit.index;
     }
 
-    // Draw obstacles.
     for (obstacles, 0..) |obs, i| {
-        const half = obs.collider.shape.rect;
-        const pos = obs.transform.position;
         const color = if (touching_index == i) Color.green else Color.red;
-        renderer.drawRect(.{
-            .x = pos.x - half.x,
-            .y = pos.y - half.y,
-            .w = half.x * 2,
-            .h = half.y * 2,
-        }, color);
+        renderer.drawRect(obs.collider.shape.rect, obs.transform, color);
     }
 
-    // Draw player.
     var iter2 = game.world.query(.{ Transform, Collider, Player });
     while (iter2.next()) |r| {
-        const half = r.Collider.shape.rect;
-        const pos = r.Transform.position;
-        renderer.drawRect(.{
-            .x = pos.x - half.x,
-            .y = pos.y - half.y,
-            .w = half.x * 2,
-            .h = half.y * 2,
-        }, Color.white);
+        renderer.drawRect(r.Collider.shape.rect, r.Transform.*, Color.white);
     }
 }
 

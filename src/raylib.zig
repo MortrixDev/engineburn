@@ -1,8 +1,10 @@
+const std = @import("std");
 const c = @cImport({
     @cInclude("raylib.h");
 });
 
 const Vec2 = @import("math/vec2.zig").Vec2;
+const Transform = @import("components/transform.zig").Transform;
 const Rect = @import("math/rect.zig").Rect;
 const Color = @import("renderer/color.zig").Color;
 
@@ -58,28 +60,57 @@ pub fn unloadTexture(texture: RawTexture) void {
     c.UnloadTexture(texture);
 }
 
-pub fn drawRect(rect: Rect, color: Color) void {
-    c.DrawRectangleRec(rlRect(rect), rlColor(color));
+pub fn drawRect(half: Vec2, transform: Transform, color: Color) void {
+    const scaled = half.mul(transform.scale);
+    const rec = c.Rectangle{
+        .x = transform.position.x,
+        .y = transform.position.y,
+        .width = scaled.x * 2,
+        .height = scaled.y * 2,
+    };
+    const origin = c.Vector2{ .x = scaled.x, .y = scaled.y };
+    c.DrawRectanglePro(rec, origin, transform.rotation * (180.0 / std.math.pi), rlColor(color));
 }
 
-pub fn drawRectOutline(rect: Rect, thickness: f32, color: Color) void {
-    c.DrawRectangleLinesEx(rlRect(rect), thickness, rlColor(color));
+pub fn drawRectOutline(half: Vec2, transform: Transform, thickness: f32, color: Color) void {
+    const scaled = half.mul(transform.scale);
+    const local = [4]Vec2{
+        .{ .x = -scaled.x, .y = -scaled.y },
+        .{ .x = scaled.x, .y = -scaled.y },
+        .{ .x = scaled.x, .y = scaled.y },
+        .{ .x = -scaled.x, .y = scaled.y },
+    };
+    var corners: [4]Vec2 = undefined;
+    for (local, 0..) |p, i| {
+        corners[i] = p.rotate(transform.rotation).add(transform.position);
+    }
+    for (0..4) |i| {
+        c.DrawLineEx(rlVec2(corners[i]), rlVec2(corners[(i + 1) % 4]), thickness, rlColor(color));
+    }
 }
 
-pub fn drawCircle(center: Vec2, radius: f32, color: Color) void {
-    c.DrawCircleV(rlVec2(center), radius, rlColor(color));
+pub fn drawCircle(radius: f32, transform: Transform, color: Color) void {
+    c.DrawCircleV(rlVec2(transform.position), radius * transform.scale.x, rlColor(color));
 }
 
-pub fn drawCircleOutline(center: Vec2, radius: f32, color: Color) void {
-    c.DrawCircleLinesV(rlVec2(center), radius, rlColor(color));
+pub fn drawCircleOutline(radius: f32, transform: Transform, color: Color) void {
+    c.DrawCircleLinesV(rlVec2(transform.position), radius * transform.scale.x, rlColor(color));
 }
 
 pub fn drawLine(a: Vec2, b: Vec2, thickness: f32, color: Color) void {
     c.DrawLineEx(rlVec2(a), rlVec2(b), thickness, rlColor(color));
 }
 
-pub fn drawTexture(texture: RawTexture, src: Rect, dst: Rect, origin: Vec2, rotation: f32, tint: Color) void {
-    c.DrawTexturePro(texture, rlRect(src), rlRect(dst), rlVec2(origin), rotation, rlColor(tint));
+pub fn drawTexture(texture: RawTexture, src: Rect, half: Vec2, transform: Transform, tint: Color) void {
+    const scaled = half.mul(transform.scale);
+    const dst = c.Rectangle{
+        .x = transform.position.x,
+        .y = transform.position.y,
+        .width = scaled.x * 2,
+        .height = scaled.y * 2,
+    };
+    const origin = c.Vector2{ .x = scaled.x, .y = scaled.y };
+    c.DrawTexturePro(texture, rlRect(src), dst, origin, transform.rotation * (180.0 / std.math.pi), rlColor(tint));
 }
 
 pub fn isKeyDown(key: i32) bool {

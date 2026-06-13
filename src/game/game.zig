@@ -3,9 +3,8 @@ const raylib = @import("../raylib.zig");
 
 const Transform = @import("../components/transform.zig").Transform;
 const Sprite = @import("../components/sprite.zig").Sprite;
-const Color = @import("../renderer/color.zig").Color;
-const Rect = @import("../math/rect.zig").Rect;
 const Vec2 = @import("../math/vec2.zig").Vec2;
+const Color = @import("../renderer/color.zig").Color;
 const renderer = @import("../renderer/renderer.zig");
 const Assets = @import("../assets/assets.zig").Assets;
 const Camera = @import("camera.zig").Camera;
@@ -79,24 +78,12 @@ pub fn Game(comptime user_components: anytype) type {
             }.lt);
 
             for (self.sprite_buffer.items) |e| {
-                const w = e.sprite.src.w * e.transform.scale.x;
-                const h = e.sprite.src.h * e.transform.scale.y;
-                // Place the destination at the sprite's center and offset the
-                // origin by half its size, so position stays the top-left when
-                // unrotated and rotation pivots around the center.
-                const dst = Rect{
-                    .x = e.transform.position.x + w / 2,
-                    .y = e.transform.position.y + h / 2,
-                    .w = w,
-                    .h = h,
-                };
-                const origin = Vec2{ .x = w / 2, .y = h / 2 };
+                const half = Vec2{ .x = e.sprite.src.w / 2.0, .y = e.sprite.src.h / 2.0 };
                 renderer.drawTexture(
                     self.assets.textures.get(e.sprite.texture).*,
                     e.sprite.src,
-                    dst,
-                    origin,
-                    e.transform.rotation,
+                    half,
+                    e.transform.*,
                     e.sprite.tint,
                 );
             }
