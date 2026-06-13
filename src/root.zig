@@ -1,5 +1,7 @@
 pub const Game = @import("game/game.zig").Game;
 pub const Camera = @import("game/camera.zig").Camera;
+pub const Timer = @import("game/timer.zig").Timer;
+pub const TimerMode = @import("game/timer.zig").TimerMode;
 pub const Transform = @import("components/transform.zig").Transform;
 pub const Sprite = @import("components/sprite.zig").Sprite;
 pub const Collider = @import("components/collider.zig").Collider;
