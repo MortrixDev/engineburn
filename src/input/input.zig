@@ -1,3 +1,4 @@
+const std = @import("std");
 const Vec2 = @import("../math/vec2.zig").Vec2;
 const raylib = @import("../raylib.zig");
 
@@ -87,38 +88,108 @@ pub const MouseButton = enum(i32) {
     middle = 2,
 };
 
-pub fn isKeyDown(key: Key) bool {
-    return raylib.isKeyDown(@intFromEnum(key));
-}
+const KEY_COUNT = blk: {
+    var max: comptime_int = 0;
+    for (std.meta.fields(Key)) |field| {
+        if (field.value > max) max = field.value;
+    }
+    break :blk max + 1;
+};
+const BUTTON_COUNT = std.meta.fields(MouseButton).len;
 
-pub fn isKeyPressed(key: Key) bool {
-    return raylib.isKeyPressed(@intFromEnum(key));
-}
+const KeySet = std.StaticBitSet(KEY_COUNT);
+const ButtonSet = std.StaticBitSet(BUTTON_COUNT);
 
-pub fn isKeyReleased(key: Key) bool {
-    return raylib.isKeyReleased(@intFromEnum(key));
-}
+pub const Input = struct {
+    keys_down: KeySet = KeySet.initEmpty(),
+    keys_pressed: KeySet = KeySet.initEmpty(),
+    keys_released: KeySet = KeySet.initEmpty(),
+    buttons_down: ButtonSet = ButtonSet.initEmpty(),
+    buttons_pressed: ButtonSet = ButtonSet.initEmpty(),
+    buttons_released: ButtonSet = ButtonSet.initEmpty(),
+    mouse_position: Vec2 = Vec2.zero,
+    mouse_delta: Vec2 = Vec2.zero,
+    wheel: f32 = 0,
 
-pub fn isMouseDown(button: MouseButton) bool {
-    return raylib.isMouseButtonDown(@intFromEnum(button));
-}
+    pub fn isKeyDown(self: *const Input, key: Key) bool {
+        return self.keys_down.isSet(@intCast(@intFromEnum(key)));
+    }
 
-pub fn isMousePressed(button: MouseButton) bool {
-    return raylib.isMouseButtonPressed(@intFromEnum(button));
-}
+    pub fn isKeyPressed(self: *const Input, key: Key) bool {
+        return self.keys_pressed.isSet(@intCast(@intFromEnum(key)));
+    }
 
-pub fn isMouseReleased(button: MouseButton) bool {
-    return raylib.isMouseButtonReleased(@intFromEnum(button));
-}
+    pub fn isKeyReleased(self: *const Input, key: Key) bool {
+        return self.keys_released.isSet(@intCast(@intFromEnum(key)));
+    }
 
-pub fn mousePos() Vec2 {
-    return raylib.getMousePosition();
-}
+    pub fn isMouseDown(self: *const Input, button: MouseButton) bool {
+        return self.buttons_down.isSet(@intCast(@intFromEnum(button)));
+    }
 
-pub fn mouseDelta() Vec2 {
-    return raylib.getMouseDelta();
-}
+    pub fn isMousePressed(self: *const Input, button: MouseButton) bool {
+        return self.buttons_pressed.isSet(@intCast(@intFromEnum(button)));
+    }
 
-pub fn mouseWheel() f32 {
-    return raylib.getMouseWheelMove();
-}
+    pub fn isMouseReleased(self: *const Input, button: MouseButton) bool {
+        return self.buttons_released.isSet(@intCast(@intFromEnum(button)));
+    }
+
+    pub fn mousePos(self: *const Input) Vec2 {
+        return self.mouse_position;
+    }
+
+    pub fn mouseDelta(self: *const Input) Vec2 {
+        return self.mouse_delta;
+    }
+
+    pub fn mouseWheel(self: *const Input) f32 {
+        return self.wheel;
+    }
+};
+
+pub const Accumulator = struct {
+    keys_down: KeySet = KeySet.initEmpty(),
+    keys_pressed: KeySet = KeySet.initEmpty(),
+    keys_released: KeySet = KeySet.initEmpty(),
+    buttons_down: ButtonSet = ButtonSet.initEmpty(),
+    buttons_pressed: ButtonSet = ButtonSet.initEmpty(),
+    buttons_released: ButtonSet = ButtonSet.initEmpty(),
+    mouse_position: Vec2 = Vec2.zero,
+    wheel: f32 = 0,
+
+    pub fn poll(self: *Accumulator) void {
+        inline for (std.meta.fields(Key)) |field| {
+            self.keys_down.setValue(field.value, raylib.isKeyDown(field.value));
+            if (raylib.isKeyPressed(field.value)) self.keys_pressed.set(field.value);
+            if (raylib.isKeyReleased(field.value)) self.keys_released.set(field.value);
+        }
+        inline for (std.meta.fields(MouseButton)) |field| {
+            self.buttons_down.setValue(field.value, raylib.isMouseButtonDown(field.value));
+            if (raylib.isMouseButtonPressed(field.value)) self.buttons_pressed.set(field.value);
+            if (raylib.isMouseButtonReleased(field.value)) self.buttons_released.set(field.value);
+        }
+        self.mouse_position = raylib.getMousePosition();
+        self.wheel += raylib.getMouseWheelMove();
+    }
+
+    pub fn consume(self: *Accumulator, last_mouse: Vec2) Input {
+        const snapshot = Input{
+            .keys_down = self.keys_down.unionWith(self.keys_pressed),
+            .keys_pressed = self.keys_pressed,
+            .keys_released = self.keys_released,
+            .buttons_down = self.buttons_down.unionWith(self.buttons_pressed),
+            .buttons_pressed = self.buttons_pressed,
+            .buttons_released = self.buttons_released,
+            .mouse_position = self.mouse_position,
+            .mouse_delta = self.mouse_position.sub(last_mouse),
+            .wheel = self.wheel,
+        };
+        self.keys_pressed = KeySet.initEmpty();
+        self.keys_released = KeySet.initEmpty();
+        self.buttons_pressed = ButtonSet.initEmpty();
+        self.buttons_released = ButtonSet.initEmpty();
+        self.wheel = 0;
+        return snapshot;
+    }
+};

@@ -8,8 +8,10 @@ const Color = @import("../renderer/color.zig").Color;
 const renderer = @import("../renderer/renderer.zig");
 const Assets = @import("../assets/assets.zig").Assets;
 const Camera = @import("camera.zig").Camera;
+const input = @import("../input/input.zig");
+const SparseSet = @import("../core/sparse_set.zig").SparseSet;
+const Entity = @import("../ecs/world.zig").Entity;
 
-const FIXED_DT: f32 = 1.0 / 60.0;
 // Upper bound on a single frame's delta. Without it, one long frame (a window
 // drag, a breakpoint, a disk stall) would queue many fixed steps that take
 // longer than real time to run, spiralling the accumulator away forever.
@@ -19,6 +21,7 @@ pub const GameConfig = struct {
     title: [:0]const u8,
     width: i32,
     height: i32,
+    fixed_step_rate: f32 = 60,
 };
 
 pub fn Game(comptime user_components: anytype) type {
@@ -60,7 +63,26 @@ pub fn Game(comptime user_components: anytype) type {
         pub const World = WorldType;
         pub const Handler = *const fn (*Self, f32) void;
 
-        const SpriteEntry = struct { sprite: *Sprite, transform: *Transform };
+        const SpriteEntry = struct { sprite: *Sprite, transform: Transform };
+
+        /// Records the current transform of every renderable entity so the next
+        /// render can interpolate from it. Called once per fixed tick, before
+        /// the handlers mutate state, so the snapshot is the tick's start state.
+        fn snapshotTransforms(self: *Self) void {
+            var iter = self.world.query(.{Transform});
+            while (iter.next()) |r| {
+                self.prev_transforms.add(self.allocator, r.entity, r.Transform.*) catch {};
+            }
+        }
+
+        /// Blends `current` with the entity's transform at the start of the most
+        /// recent fixed tick, by `self.interpolation`, to produce the transform
+        /// to render this frame. Entities with no recorded previous state (never
+        /// ticked, or not renderable) fall back to `current`.
+        pub fn interpolate(self: *Self, entity: Entity, current: Transform) Transform {
+            const prev = self.prev_transforms.get(entity) orelse return current;
+            return prev.lerp(current, self.interpolation);
+        }
 
         fn renderSprites(self: *Self) void {
             self.sprite_buffer.clearRetainingCapacity();
@@ -68,7 +90,8 @@ pub fn Game(comptime user_components: anytype) type {
             var iter = self.world.query(.{ Sprite, Transform });
             while (iter.next()) |r| {
                 if (!r.Sprite.visible) continue;
-                self.sprite_buffer.append(self.allocator, .{ .sprite = r.Sprite, .transform = r.Transform }) catch continue;
+                const xf = self.interpolate(r.entity, r.Transform.*);
+                self.sprite_buffer.append(self.allocator, .{ .sprite = r.Sprite, .transform = xf }) catch continue;
             }
 
             std.mem.sort(SpriteEntry, self.sprite_buffer.items, {}, struct {
@@ -83,7 +106,7 @@ pub fn Game(comptime user_components: anytype) type {
                     self.assets.textures.get(e.sprite.texture).*,
                     e.sprite.src,
                     half,
-                    e.transform.*,
+                    e.transform,
                     e.sprite.tint,
                 );
             }
@@ -94,10 +117,13 @@ pub fn Game(comptime user_components: anytype) type {
         config: GameConfig,
         allocator: std.mem.Allocator,
         camera: Camera = .{},
+        input: input.Input = .{},
+        interpolation: f32 = 0,
         on_fixed: std.ArrayListUnmanaged(Handler) = .empty,
         on_update: std.ArrayListUnmanaged(Handler) = .empty,
         on_render: std.ArrayListUnmanaged(Handler) = .empty,
         sprite_buffer: std.ArrayListUnmanaged(SpriteEntry) = .empty,
+        prev_transforms: SparseSet(Transform) = .{},
 
         pub fn init(allocator: std.mem.Allocator, config: GameConfig) Self {
             raylib.initWindow(config.width, config.height, config.title);
@@ -116,6 +142,7 @@ pub fn Game(comptime user_components: anytype) type {
             self.on_update.deinit(self.allocator);
             self.on_render.deinit(self.allocator);
             self.sprite_buffer.deinit(self.allocator);
+            self.prev_transforms.deinit(self.allocator);
             raylib.closeWindow();
         }
 
@@ -142,20 +169,39 @@ pub fn Game(comptime user_components: anytype) type {
             try self.on_render.append(self.allocator, handler);
         }
 
+        /// Advances the simulation by exactly one fixed tick. Deterministic: it
+        /// reads only `self.world`, `self.input`, and the registered fixed
+        /// handlers, never raylib or wall-clock time, so it can be driven
+        /// headlessly for replays and determinism tests. `self.input` must hold
+        /// the tick's input snapshot before calling.
+        pub fn stepFixed(self: *Self) void {
+            const fixed_dt = 1.0 / self.config.fixed_step_rate;
+            for (self.on_fixed.items) |handler| {
+                handler(self, fixed_dt);
+            }
+        }
+
         pub fn run(self: *Self, io: std.Io) void {
+            const fixed_dt = 1.0 / self.config.fixed_step_rate;
             var accumulator: f32 = 0;
+            var inputs = input.Accumulator{};
+            var last_mouse = Vec2.zero;
 
             while (!raylib.windowShouldClose()) {
                 self.assets.pollReloads(io);
+
+                inputs.poll();
                 const frame_time = @min(raylib.getFrameTime(), MAX_FRAME_TIME);
                 accumulator += frame_time;
 
-                while (accumulator >= FIXED_DT) {
-                    for (self.on_fixed.items) |handler| {
-                        handler(self, FIXED_DT);
-                    }
-                    accumulator -= FIXED_DT;
+                while (accumulator >= fixed_dt) {
+                    self.input = inputs.consume(last_mouse);
+                    last_mouse = self.input.mouse_position;
+                    self.snapshotTransforms();
+                    self.stepFixed();
+                    accumulator -= fixed_dt;
                 }
+                self.interpolation = accumulator / fixed_dt;
 
                 for (self.on_update.items) |handler| {
                     handler(self, frame_time);
