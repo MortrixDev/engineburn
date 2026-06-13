@@ -101,6 +101,20 @@ pub fn drawLine(a: Vec2, b: Vec2, thickness: f32, color: Color) void {
     c.DrawLineEx(rlVec2(a), rlVec2(b), thickness, rlColor(color));
 }
 
+pub fn drawPolygon(verts: []const Vec2, transform: Transform, color: Color) void {
+    if (verts.len < 3) return;
+    const rl = rlColor(color);
+    const v0 = rlVec2(polyPoint(verts[0], transform));
+    var i: usize = 1;
+    while (i + 1 < verts.len) : (i += 1) {
+        c.DrawTriangle(v0, rlVec2(polyPoint(verts[i], transform)), rlVec2(polyPoint(verts[i + 1], transform)), rl);
+    }
+}
+
+fn polyPoint(p: Vec2, transform: Transform) Vec2 {
+    return p.mul(transform.scale).rotate(transform.rotation).add(transform.position);
+}
+
 pub fn drawTexture(texture: RawTexture, src: Rect, half: Vec2, transform: Transform, tint: Color) void {
     const scaled = half.mul(transform.scale);
     const dst = c.Rectangle{

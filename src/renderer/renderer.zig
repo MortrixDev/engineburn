@@ -25,6 +25,10 @@ pub fn drawLine(a: Vec2, b: Vec2, thickness: f32, color: Color) void {
     raylib.drawLine(a, b, thickness, color);
 }
 
+pub fn drawPolygon(verts: []const Vec2, transform: Transform, color: Color) void {
+    raylib.drawPolygon(verts, transform, color);
+}
+
 /// Draws `texture` from `src` into a rect of half-extents `half` at
 /// `transform.position`, scaled by `transform.scale` and rotated by
 /// `transform.rotation` (radians) about the center.

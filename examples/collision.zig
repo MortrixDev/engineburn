@@ -3,67 +3,48 @@ const engineburn = @import("engineburn");
 const Game = engineburn.Game;
 const Transform = engineburn.Transform;
 const Collider = engineburn.Collider;
-const Vec2 = engineburn.Vec2;
+const FillShape = engineburn.FillShape;
 const Color = engineburn.Color;
-const renderer = engineburn.renderer;
 const collision = engineburn.physics;
 
 const SPEED: f32 = 250;
 const SPIN: f32 = 1.5;
 
+const default_color = Color.hex(0xcf7a76);
+const touch_color = Color.hex(0x76cf77);
+
 const Player = struct {};
+const Obstacle = struct {};
 
-const MyGame = Game(.{ Collider, Player });
-
-const initial_obstacles = [_]collision.Body{
-    .{
-        .transform = .{ .position = .{ .x = 200, .y = 150 } },
-        .collider = .{ .shape = .{ .rect = .{ .x = 40, .y = 40 } } },
-    },
-    .{
-        .transform = .{ .position = .{ .x = -100, .y = 80 } },
-        .collider = .{ .shape = .{ .rect = .{ .x = 60, .y = 25 } } },
-    },
-    .{
-        .transform = .{ .position = .{ .x = 50, .y = -180 } },
-        .collider = .{ .shape = .{ .rect = .{ .x = 30, .y = 60 } } },
-    },
-};
-
-var obstacles = initial_obstacles;
-var prev_obstacles = initial_obstacles;
+const MyGame = Game(.{ Collider, FillShape, Player, Obstacle });
 
 fn fixed(game: *MyGame, dt: f32) void {
-    prev_obstacles = obstacles;
-    obstacles[0].transform.rotation += SPIN * dt;
-
-    var iter = game.world.query(.{ Transform, Collider, Player });
-    while (iter.next()) |r| {
+    var player_body: ?collision.Body = null;
+    var players = game.world.query(.{ Transform, Collider, Player });
+    while (players.next()) |r| {
         if (game.input.isKeyDown(.right)) r.Transform.position.x += SPEED * dt;
         if (game.input.isKeyDown(.left)) r.Transform.position.x -= SPEED * dt;
         if (game.input.isKeyDown(.down)) r.Transform.position.y += SPEED * dt;
         if (game.input.isKeyDown(.up)) r.Transform.position.y -= SPEED * dt;
+        player_body = .{ .transform = r.Transform.*, .collider = r.Collider.* };
+    }
+
+    var obstacles = game.world.query(.{ Transform, Collider, FillShape, Obstacle });
+    while (obstacles.next()) |r| {
+        r.Transform.rotation += SPIN * dt;
+        const body = collision.Body{ .transform = r.Transform.*, .collider = r.Collider.* };
+        const touching = if (player_body) |pb| collision.IsColliding(pb, body) != null else false;
+        r.FillShape.color = if (touching) touch_color else default_color;
     }
 }
 
-fn render(game: *MyGame, _: f32) void {
-    var touching_index: ?usize = null;
-    var iter = game.world.query(.{ Transform, Collider, Player });
-    if (iter.next()) |r| {
-        const body = collision.Body{ .transform = r.Transform.*, .collider = r.Collider.* };
-        if (collision.IsCollidingMany(body, &obstacles)) |hit| touching_index = hit.index;
-    }
-
-    for (obstacles, 0..) |obs, i| {
-        const color = if (touching_index == i) Color.green else Color.red;
-        const xf = prev_obstacles[i].transform.lerp(obs.transform, game.interpolation);
-        renderer.drawRect(obs.collider.shape.rect, xf, color);
-    }
-
-    var iter2 = game.world.query(.{ Transform, Collider, Player });
-    while (iter2.next()) |r| {
-        renderer.drawRect(r.Collider.shape.rect, game.interpolate(r.entity, r.Transform.*), Color.white);
-    }
+fn spawnBox(game: *MyGame, x: f32, y: f32, hw: f32, hh: f32, color: Color, marker: anytype) !void {
+    _ = try game.world.spawn(.{
+        Transform{ .position = .{ .x = x, .y = y } },
+        Collider{ .shape = .{ .rect = .{ .x = hw, .y = hh } } },
+        FillShape{ .shape = .{ .rect = .{ .x = hw, .y = hh } }, .color = color },
+        marker,
+    });
 }
 
 pub fn main(init: std.process.Init) !void {
@@ -75,13 +56,11 @@ pub fn main(init: std.process.Init) !void {
     });
     defer game.deinit();
 
-    _ = try game.world.spawn(.{
-        Transform{ .position = .{ .x = 0, .y = 0 } },
-        Collider{ .shape = .{ .rect = .{ .x = 32, .y = 32 } } },
-        Player{},
-    });
+    try spawnBox(&game, 200, 150, 40, 40, default_color, Obstacle{});
+    try spawnBox(&game, -100, 80, 60, 25, default_color, Obstacle{});
+    try spawnBox(&game, 50, -180, 30, 60, default_color, Obstacle{});
+    try spawnBox(&game, 0, 0, 32, 32, Color.hex(0x68a6cc), Player{});
 
     try game.addFixed(fixed);
-    try game.addRender(render);
     game.run(init.io);
 }

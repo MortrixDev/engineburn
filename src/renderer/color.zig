@@ -14,8 +14,17 @@ pub const Color = struct {
         return .{ .r = r, .g = g, .b = b, .a = a };
     }
 
+    // 0xRRGGBB
+    pub fn hex(hex_color: u24) Color {
+        return .{
+            .r = @intCast((hex_color >> 16) & 0xFF),
+            .g = @intCast((hex_color >> 8) & 0xFF),
+            .b = @intCast(hex_color & 0xFF),
+        };
+    }
+
     // 0xRRGGBBAA
-    pub fn hex(hex_color: u32) Color {
+    pub fn hexa(hex_color: u32) Color {
         return .{
             .r = @intCast((hex_color >> 24) & 0xFF),
             .g = @intCast((hex_color >> 16) & 0xFF),
@@ -33,10 +42,11 @@ pub const Color = struct {
         };
     }
 
-    pub const white = Color.hex(0xFFFFFFFF);
-    pub const black = Color.hex(0x000000FF);
-    pub const red = Color.hex(0xFF0000FF);
-    pub const green = Color.hex(0x00FF00FF);
-    pub const blue = Color.hex(0x0000FFFF);
-    pub const transparent = Color.hex(0x00000000);
+    pub const white = Color.hex(0xFFFFFF);
+    pub const black = Color.hex(0x000000);
+    pub const red = Color.hex(0xFF0000);
+    pub const green = Color.hex(0x00FF00);
+    pub const blue = Color.hex(0x0000FF);
+    pub const magenta = Color.hex(0xFF00FF);
+    pub const transparent = Color.hexa(0x00000000);
 };
