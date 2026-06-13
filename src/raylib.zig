@@ -23,6 +23,7 @@ fn rlVec2(v: Vec2) c.Vector2 {
 }
 
 pub fn initWindow(width: i32, height: i32, title: [:0]const u8) void {
+    c.SetTraceLogLevel(c.LOG_NONE);
     c.InitWindow(width, height, title);
 }
 
