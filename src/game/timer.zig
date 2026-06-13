@@ -18,6 +18,10 @@ pub const Timer = struct {
     pub fn tick(self: *Timer, dt: f32) void {
         self.just_finished = false;
         if (self.paused) return;
+        if (self.duration <= 0) {
+            self.just_finished = true;
+            return;
+        }
         if (self.mode == .once and self.elapsed >= self.duration) return;
         self.elapsed += dt;
         if (self.elapsed >= self.duration) {
@@ -35,6 +39,7 @@ pub const Timer = struct {
     }
 
     pub fn fraction(self: *const Timer) f32 {
+        if (self.duration <= 0) return 1.0;
         return @min(self.elapsed / self.duration, 1.0);
     }
 

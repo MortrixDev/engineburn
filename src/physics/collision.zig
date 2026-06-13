@@ -13,19 +13,14 @@ pub fn IsColliding(a: Body, b: Body) ?Manifold {
         return circleCircle(a, b);
     }
 
-    var buf: [MAX_POLY * 2]Vec2 = undefined;
-    var n: usize = 0;
-    n += getAxes(a, buf[n..]).len;
-    n += getAxes(b, buf[n..]).len;
-
+    var extra_axis: ?Vec2 = null;
     if (a.collider.shape == .circle or b.collider.shape == .circle) {
         const circle_body = if (a.collider.shape == .circle) a else b;
         const poly_body = if (a.collider.shape == .circle) b else a;
-        buf[n] = nearestVertexAxis(circle_body, poly_body);
-        n += 1;
+        extra_axis = nearestVertexAxis(circle_body, poly_body);
     }
 
-    return sat(a, b, buf[0..n]);
+    return sat(a, b, extra_axis);
 }
 
 pub fn IsCollidingMany(a: Body, others: []const Body) ?Hit {
@@ -44,24 +39,32 @@ fn toWorld(body: Body, p: Vec2) Vec2 {
     return xf.position.add(body.collider.offset.add(p).mul(xf.scale).rotate(xf.rotation));
 }
 
-fn getAxes(body: Body, buf: []Vec2) []Vec2 {
+/// Number of separating axes a shape contributes to SAT. Circles contribute
+/// none of their own; the relevant circle axis is supplied separately via
+/// `nearestVertexAxis`.
+fn axisCount(body: Body) usize {
+    return switch (body.collider.shape) {
+        .circle => 0,
+        .rect => 2,
+        .polygon => |verts| verts.len,
+    };
+}
+
+/// The `i`th separating axis of `body`, in world space. `i` must be less than
+/// `axisCount(body)`. Computing axes on demand keeps SAT free of any fixed cap
+/// on polygon vertex count.
+fn axisAt(body: Body, i: usize) Vec2 {
     switch (body.collider.shape) {
-        .circle => return buf[0..0],
+        .circle => unreachable,
         .rect => {
             const r = body.transform.rotation;
-            buf[0] = Vec2.right.rotate(r);
-            buf[1] = Vec2.down.rotate(r);
-            return buf[0..2];
+            return if (i == 0) Vec2.right.rotate(r) else Vec2.down.rotate(r);
         },
         .polygon => |verts| {
-            std.debug.assert(verts.len <= buf.len);
-            for (verts, 0..) |v, i| {
-                const a = toWorld(body, v);
-                const b = toWorld(body, verts[(i + 1) % verts.len]);
-                const edge = b.sub(a);
-                buf[i] = (Vec2{ .x = edge.y, .y = -edge.x }).normalize();
-            }
-            return buf[0..verts.len];
+            const a = toWorld(body, verts[i]);
+            const b = toWorld(body, verts[(i + 1) % verts.len]);
+            const edge = b.sub(a);
+            return (Vec2{ .x = edge.y, .y = -edge.x }).normalize();
         },
     }
 }
@@ -97,28 +100,50 @@ fn projectPoints(body: Body, points: []const Vec2, axis: Vec2) [2]f32 {
     return .{ lo, hi };
 }
 
-const MAX_POLY = 32;
+const Sat = struct {
+    a: Body,
+    b: Body,
+    center_a: Vec2,
+    center_b: Vec2,
+    min_depth: f32 = std.math.inf(f32),
+    min_normal: Vec2 = Vec2.zero,
 
-fn sat(a: Body, b: Body, axes: []const Vec2) ?Manifold {
-    var min_depth: f32 = std.math.inf(f32);
-    var min_normal: Vec2 = Vec2.zero;
+    /// Tests one axis. Returns false if it is a separating axis (no overlap),
+    /// in which case the shapes do not collide and SAT can stop early.
+    fn testAxis(self: *Sat, axis: Vec2) bool {
+        const pa = project(self.a, axis);
+        const pb = project(self.b, axis);
 
-    for (axes) |axis| {
-        const pa = project(a, axis);
-        const pb = project(b, axis);
-
-        if (pa[1] < pb[0] or pb[1] < pa[0]) return null;
+        if (pa[1] < pb[0] or pb[1] < pa[0]) return false;
 
         const depth = @min(pa[1], pb[1]) - @max(pa[0], pb[0]);
-        if (depth < min_depth) {
-            min_depth = depth;
-            const center_a = toWorld(a, Vec2.zero);
-            const center_b = toWorld(b, Vec2.zero);
-            min_normal = if (center_b.sub(center_a).dot(axis) < 0) axis.negate() else axis;
+        if (depth < self.min_depth) {
+            self.min_depth = depth;
+            self.min_normal = if (self.center_b.sub(self.center_a).dot(axis) < 0) axis.negate() else axis;
         }
+        return true;
+    }
+};
+
+fn sat(a: Body, b: Body, extra_axis: ?Vec2) ?Manifold {
+    var s = Sat{
+        .a = a,
+        .b = b,
+        .center_a = toWorld(a, Vec2.zero),
+        .center_b = toWorld(b, Vec2.zero),
+    };
+
+    for (0..axisCount(a)) |i| {
+        if (!s.testAxis(axisAt(a, i))) return null;
+    }
+    for (0..axisCount(b)) |i| {
+        if (!s.testAxis(axisAt(b, i))) return null;
+    }
+    if (extra_axis) |axis| {
+        if (!s.testAxis(axis)) return null;
     }
 
-    return .{ .normal = min_normal, .depth = min_depth };
+    return .{ .normal = s.min_normal, .depth = s.min_depth };
 }
 
 fn circleCircle(a: Body, b: Body) ?Manifold {
@@ -126,7 +151,7 @@ fn circleCircle(a: Body, b: Body) ?Manifold {
     const rb = b.collider.shape.circle * b.transform.scale.x;
     const ca = toWorld(a, Vec2.zero);
     const cb = toWorld(b, Vec2.zero);
-    const diff = ca.sub(cb);
+    const diff = cb.sub(ca);
     const dist2 = diff.lengthSquared();
     const radii = ra + rb;
     if (dist2 >= radii * radii) return null;

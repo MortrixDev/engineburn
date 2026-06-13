@@ -165,7 +165,7 @@ pub fn Game(comptime user_components: anytype) type {
                 raylib.clearBackground(Color.black);
                 raylib.beginCamera2D(
                     self.camera.transform.position,
-                    self.camera.transform.rotation,
+                    self.camera.transform.rotation * (180.0 / std.math.pi),
                     self.camera.zoom,
                     @floatFromInt(self.config.width),
                     @floatFromInt(self.config.height),
