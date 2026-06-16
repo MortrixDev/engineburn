@@ -34,13 +34,60 @@ fn containsType(comptime types: []const type, comptime T: type) bool {
     return false;
 }
 
-fn componentTypes(comptime user_components: anytype) []const type {
-    const fields = std.meta.fields(@TypeOf(user_components));
-    comptime var buf: [fields.len + 1]type = undefined;
-    comptime var n: usize = 1;
-    buf[0] = Transform;
-    inline for (fields) |field| {
-        const T = @field(user_components, field.name);
+// The engine's own component types. Their stores are always registered: an
+// unused store is just empty slices, so registering them all costs nothing and
+// means a game never has to declare its intent to use sprites, colliders, etc.
+const builtin_components = [_]type{ Transform, Sprite, Collider, FillShape };
+
+/// Scans the root source file for user-declared component types: any `pub`
+/// top-level type that declares `pub const is_component = {};`. This is how
+/// custom components register without a hand-maintained list, so marking the
+/// type is enough. The type must be `pub`: `@typeInfo` only exposes public
+/// declarations, so a private component type is invisible to the scan. Returns
+/// an empty list when root has no such types (for example when building the
+/// engine's own tests, where root is the library itself).
+fn scanRootComponents() []const type {
+    const root = @import("root");
+    if (@typeInfo(root) != .@"struct") return &[_]type{};
+    const decls = @typeInfo(root).@"struct".decls;
+    comptime var buf: [decls.len]type = undefined;
+    comptime var n: usize = 0;
+    inline for (decls) |d| {
+        const value = @field(root, d.name);
+        if (@TypeOf(value) != type) continue;
+        if (@typeInfo(value) != .@"struct") continue;
+        if (!@hasDecl(value, "is_component")) continue;
+        buf[n] = value;
+        n += 1;
+    }
+    const final = buf[0..n].*;
+    return &final;
+}
+
+/// Builds the full component-store list: the always-on built-ins, plus every
+/// user component discovered in root, plus any `extra` types passed explicitly.
+/// `extra` is an escape hatch for components the scan can't see: anonymous
+/// types, or types declared outside the root source file. Duplicates are
+/// collapsed, so listing a type that's already discovered is harmless.
+fn componentTypes(comptime extra: anytype) []const type {
+    const scanned = comptime scanRootComponents();
+    const extra_fields = std.meta.fields(@TypeOf(extra));
+    comptime var buf: [builtin_components.len + scanned.len + extra_fields.len]type = undefined;
+    comptime var n: usize = 0;
+    inline for (builtin_components) |T| {
+        if (!containsType(buf[0..n], T)) {
+            buf[n] = T;
+            n += 1;
+        }
+    }
+    inline for (scanned) |T| {
+        if (!containsType(buf[0..n], T)) {
+            buf[n] = T;
+            n += 1;
+        }
+    }
+    inline for (extra_fields) |field| {
+        const T = @field(extra, field.name);
         if (!containsType(buf[0..n], T)) {
             buf[n] = T;
             n += 1;
@@ -50,8 +97,11 @@ fn componentTypes(comptime user_components: anytype) []const type {
     return &final;
 }
 
-pub fn Game(comptime user_components: anytype) type {
-    const components = comptime componentTypes(user_components);
+/// Defines a game type. Component stores are discovered automatically (see
+/// `scanRootComponents`), so the common case is `Game(.{})`. Pass extra types in
+/// the tuple only to register components the scan can't reach.
+pub fn Game(comptime extra: anytype) type {
+    const components = comptime componentTypes(extra);
     const has_sprite = comptime containsType(components, Sprite);
     const has_collider = comptime containsType(components, Collider);
     const has_fill_shape = comptime containsType(components, FillShape);

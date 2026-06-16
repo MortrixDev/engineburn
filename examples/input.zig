@@ -6,7 +6,7 @@ const Transform = engineburn.Transform;
 
 const SPEED: f32 = 200;
 
-const MyGame = Game(.{Sprite});
+const MyGame = Game(.{});
 
 fn fixed(game: *MyGame, dt: f32) void {
     var iter = game.world.query(.{Transform});

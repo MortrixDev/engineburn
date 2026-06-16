@@ -13,10 +13,14 @@ const SPIN: f32 = 1.5;
 const default_color = Color.hex(0xcf7a76);
 const touch_color = Color.hex(0x76cf77);
 
-const Player = struct {};
-const Obstacle = struct {};
+pub const Player = struct {
+    pub const is_component = {};
+};
+pub const Obstacle = struct {
+    pub const is_component = {};
+};
 
-const MyGame = Game(.{ Collider, FillShape, Player, Obstacle });
+const MyGame = Game(.{});
 
 fn fixed(game: *MyGame, dt: f32) void {
     var player_body: ?collision.Body = null;

@@ -4,7 +4,7 @@ const Game = engineburn.Game;
 const Sprite = engineburn.Sprite;
 const Transform = engineburn.Transform;
 
-const MyGame = Game(.{Sprite});
+const MyGame = Game(.{});
 
 pub fn main(init: std.process.Init) !void {
     var game = MyGame.init(init.gpa, .{
