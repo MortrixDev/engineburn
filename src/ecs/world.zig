@@ -117,6 +117,10 @@ pub fn World(comptime component_types: []const type) type {
         }
 
         fn store(self: *Self, comptime T: type) *SparseSet(T) {
+            if (!@hasField(Stores, storeKey(T)))
+                @compileError("'" ++ @typeName(T) ++ "' is not a registered component. " ++
+                    "Declare the type `pub` and mark it with `pub const is_component = {};` so the " ++
+                    "root scan can find it, or pass it to Game(.{ ... }) explicitly.");
             return &@field(self.stores, storeKey(T));
         }
 
