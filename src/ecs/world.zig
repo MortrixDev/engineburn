@@ -179,6 +179,10 @@ pub fn World(comptime component_types: []const type) type {
 
                     return null;
                 }
+
+                pub fn reset(self: *Iter) void {
+                    self.cursor = 0;
+                }
             };
         }
 
