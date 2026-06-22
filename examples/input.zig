@@ -13,8 +13,8 @@ fn fixed(game: *MyGame, dt: f32) void {
     while (iter.next()) |r| {
         if (game.input.isKeyDown(.right)) r.Transform.position.x += SPEED * dt;
         if (game.input.isKeyDown(.left)) r.Transform.position.x -= SPEED * dt;
-        if (game.input.isKeyDown(.down)) r.Transform.position.y += SPEED * dt;
-        if (game.input.isKeyDown(.up)) r.Transform.position.y -= SPEED * dt;
+        if (game.input.isKeyDown(.up)) r.Transform.position.y += SPEED * dt;
+        if (game.input.isKeyDown(.down)) r.Transform.position.y -= SPEED * dt;
     }
 }
 

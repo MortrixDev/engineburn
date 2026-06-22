@@ -19,7 +19,7 @@ fn rlRect(rect: Rect) c.Rectangle {
 }
 
 fn rlVec2(v: Vec2) c.Vector2 {
-    return .{ .x = v.x, .y = v.y };
+    return .{ .x = v.x, .y = -v.y };
 }
 
 pub fn initWindow(width: i32, height: i32, title: [:0]const u8) void {
@@ -65,12 +65,12 @@ pub fn drawRect(half: Vec2, transform: Transform, color: Color) void {
     const scaled = half.mul(transform.scale);
     const rec = c.Rectangle{
         .x = transform.position.x,
-        .y = transform.position.y,
+        .y = -transform.position.y,
         .width = scaled.x * 2,
         .height = scaled.y * 2,
     };
     const origin = c.Vector2{ .x = scaled.x, .y = scaled.y };
-    c.DrawRectanglePro(rec, origin, transform.rotation * (180.0 / std.math.pi), rlColor(color));
+    c.DrawRectanglePro(rec, origin, -transform.rotation * (180.0 / std.math.pi), rlColor(color));
 }
 
 pub fn drawRectOutline(half: Vec2, transform: Transform, thickness: f32, color: Color) void {
@@ -120,12 +120,12 @@ pub fn drawTexture(texture: RawTexture, src: Rect, half: Vec2, transform: Transf
     const scaled = half.mul(transform.scale);
     const dst = c.Rectangle{
         .x = transform.position.x,
-        .y = transform.position.y,
+        .y = -transform.position.y,
         .width = scaled.x * 2,
         .height = scaled.y * 2,
     };
     const origin = c.Vector2{ .x = scaled.x, .y = scaled.y };
-    c.DrawTexturePro(texture, rlRect(src), dst, origin, transform.rotation * (180.0 / std.math.pi), rlColor(tint));
+    c.DrawTexturePro(texture, rlRect(src), dst, origin, -transform.rotation * (180.0 / std.math.pi), rlColor(tint));
 }
 
 pub fn isKeyDown(key: i32) bool {
@@ -170,7 +170,7 @@ pub fn beginCamera2D(target: Vec2, rotation: f32, zoom: f32, screen_w: f32, scre
     c.BeginMode2D(.{
         .offset = .{ .x = screen_w / 2.0, .y = screen_h / 2.0 },
         .target = rlVec2(target),
-        .rotation = rotation,
+        .rotation = -rotation,
         .zoom = zoom,
     });
 }
