@@ -26,10 +26,7 @@ fn fixed(game: *MyGame, dt: f32) void {
     var player_body: ?collision.Body = null;
     var players = game.world.query(.{ Transform, Collider, Player });
     while (players.next()) |r| {
-        if (game.input.isKeyDown(.right)) r.Transform.position.x += SPEED * dt;
-        if (game.input.isKeyDown(.left)) r.Transform.position.x -= SPEED * dt;
-        if (game.input.isKeyDown(.up)) r.Transform.position.y += SPEED * dt;
-        if (game.input.isKeyDown(.down)) r.Transform.position.y -= SPEED * dt;
+        r.Transform.position = r.Transform.position.add(game.input.vector(.left, .right, .down, .up).scale(SPEED * dt));
         player_body = .{ .transform = r.Transform.*, .collider = r.Collider.* };
     }
 

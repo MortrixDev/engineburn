@@ -146,6 +146,22 @@ pub const Input = struct {
     pub fn mouseWheel(self: *const Input) f32 {
         return self.wheel;
     }
+
+    /// Returns a -1..1 axis value from two opposing keys.
+    pub fn axis(self: *const Input, neg: Key, pos: Key) f32 {
+        return @as(f32, @floatFromInt(@intFromBool(self.isKeyDown(pos)))) -
+            @as(f32, @floatFromInt(@intFromBool(self.isKeyDown(neg))));
+    }
+
+    /// Returns a direction vector from two key pairs,
+    /// each being  -1..1 axis value from two opposing keys.
+    /// The vector is not normalized.
+    pub fn vector(self: *const Input, xNeg: Key, xPos: Key, yNeg: Key, yPos: Key) Vec2 {
+        return Vec2{
+            .x = axis(self, xNeg, xPos),
+            .y = axis(self, yNeg, yPos),
+        };
+    }
 };
 
 pub const Accumulator = struct {
